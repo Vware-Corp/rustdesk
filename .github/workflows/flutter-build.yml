@@ -53,7 +53,7 @@ jobs:
     uses: ./.github/workflows/third-party-RustDeskTempTopMostWindow.yml
     with:
       upload-artifact: ${{ inputs.upload-artifact }}
-      target: windows-2022
+      target: windows
       configuration: Release
       platform: x64
       target_version: Windows10
@@ -63,20 +63,22 @@ jobs:
   build-for-windows-flutter:
     name: ${{ matrix.job.target }}
     needs: [build-RustDeskTempTopMostWindow, generate-bridge]
-    runs-on: ${{ matrix.job.os }}
+    runs-on: 
+      - self-hosted
+      - ${{ matrix.job.os }}
     strategy:
       fail-fast: false
       matrix:
         job:
-          # - { target: i686-pc-windows-msvc        , os: windows-2022                  }
-          # - { target: x86_64-pc-windows-gnu       , os: windows-2022                  }
+          # - { target: i686-pc-windows-msvc        , os: windows                  }
+          # - { target: x86_64-pc-windows-gnu       , os: windows                  }
           - {
               target: x86_64-pc-windows-msvc,
-              os: windows-2022,
+              os: windows,
               arch: x86_64,
               vcpkg-triplet: x64-windows-static,
             }
-          # - { target: aarch64-pc-windows-msvc, os: windows-2022, arch: aarch64 }
+          # - { target: aarch64-pc-windows-msvc, os: windows, arch: aarch64 }
     steps:
       - name: Export GitHub Actions cache environment variables
         uses: actions/github-script@v6
@@ -252,20 +254,20 @@ jobs:
     name: ${{ matrix.job.target }} (${{ matrix.job.os }})
     runs-on: ${{ matrix.job.os }}
     # Temporarily disable this action due to additional test is needed.
-    # if: false
+    if: false
     strategy:
       fail-fast: false
       matrix:
         job:
-          # - { target: i686-pc-windows-msvc        , os: windows-2022                  }
-          # - { target: x86_64-pc-windows-gnu       , os: windows-2022                  }
+          # - { target: i686-pc-windows-msvc        , os: windows                  }
+          # - { target: x86_64-pc-windows-gnu       , os: windows                  }
           - {
               target: i686-pc-windows-msvc,
-              os: windows-2022,
+              os: windows,
               arch: x86,
               vcpkg-triplet: x86-windows-static,
             }
-          # - { target: aarch64-pc-windows-msvc, os: windows-2022 }
+          # - { target: aarch64-pc-windows-msvc, os: windows }
     steps:
       - name: Export GitHub Actions cache environment variables
         uses: actions/github-script@v6
@@ -464,8 +466,10 @@ jobs:
   build-rustdesk-ios:
     if: ${{ inputs.upload-artifact }}
     name: build rustdesk ios ipa
-    runs-on: ${{ matrix.job.os }}
     needs: [generate-bridge]
+    runs-on:
+      - self-hosted
+      - ${{ matrix.job.os }}
     strategy:
       fail-fast: false
       matrix:
@@ -629,8 +633,10 @@ jobs:
 
   build-for-macOS:
     name: ${{ matrix.job.target }}
-    runs-on: ${{ matrix.job.os }}
     needs: [generate-bridge]
+    runs-on: 
+      - self-hosted
+      - ${{ matrix.job.os }}
     strategy:
       fail-fast: false
       matrix:
@@ -836,7 +842,7 @@ jobs:
     needs:
       - build-for-macOS
       - build-for-windows-flutter
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux]
     if: ${{ inputs.upload-artifact }}
     steps:
       - name: Download artifacts
@@ -871,7 +877,9 @@ jobs:
   build-rustdesk-android:
     needs: [generate-bridge]
     name: build rustdesk android apk ${{ matrix.job.target }}
-    runs-on: ${{ matrix.job.os }}
+    runs-on: 
+      - self-hosted
+      - ${{ matrix.job.os }}
     strategy:
       fail-fast: false
       matrix:
@@ -972,7 +980,7 @@ jobs:
       - name: Setup vcpkg with Github Actions binary cache
         uses: lukka/run-vcpkg@v11
         with:
-          vcpkgDirectory: /opt/artifacts/vcpkg
+          vcpkgDirectory: ${{ github.workspace }}/artifacts/vcpkg
           vcpkgGitCommitId: ${{ env.VCPKG_COMMIT_ID }}
           doNotCache: false
 
@@ -1168,7 +1176,7 @@ jobs:
     needs: [build-rustdesk-android]
     name: build rustdesk android universal apk
     if: ${{ inputs.upload-artifact }}
-    runs-on: ubuntu-20.04
+    runs-on: [self-hosted, linux]
     env:
       reltype: release
       x86_target: "" # can be ",android-x86"
@@ -1355,7 +1363,9 @@ jobs:
   build-rustdesk-linux:
     needs: [generate-bridge]
     name: build rustdesk linux ${{ matrix.job.target }}
-    runs-on: ${{ matrix.job.on }}
+    runs-on: 
+      - self-hosted
+      - ${{ matrix.job.on }}
     strategy:
       fail-fast: false
       matrix:
@@ -1437,7 +1447,7 @@ jobs:
         if: matrix.job.arch == 'x86_64' || env.UPLOAD_ARTIFACT == 'true'
         uses: lukka/run-vcpkg@v11
         with:
-          vcpkgDirectory: /opt/artifacts/vcpkg
+          vcpkgDirectory: ${{ github.workspace }}/artifacts/vcpkg
           vcpkgGitCommitId: ${{ env.VCPKG_COMMIT_ID }}
           doNotCache: false
 
@@ -1478,10 +1488,10 @@ jobs:
           githubToken: ${{ github.token }}
           setup: |
             ls -l "${PWD}"
-            ls -l /opt/artifacts/vcpkg/installed
+            ls -l ${{ github.workspace }}/artifacts/vcpkg/installed
           dockerRunArgs: |
             --volume "${PWD}:/workspace"
-            --volume "/opt/artifacts:/opt/artifacts"
+            --volume "${{ github.workspace }}/artifacts:${{ github.workspace }}/artifacts"
           shell: /bin/bash
           install: |
             apt-get update -y
@@ -1522,7 +1532,7 @@ jobs:
             apt-get remove -y libopus-dev || true
             # output devs
             ls -l ./
-            tree -L 3 /opt/artifacts/vcpkg/installed
+            tree -L 3 ${{ github.workspace }}/artifacts/vcpkg/installed
           run: |
             # disable git safe.directory
             git config --global --add safe.directory "*"
@@ -1542,7 +1552,7 @@ jobs:
             cat ~/.cargo/config
             # start build
             pushd /workspace
-            export VCPKG_ROOT=/opt/artifacts/vcpkg
+            export VCPKG_ROOT=${{ github.workspace }}/artifacts/vcpkg
             if [[ "${{ matrix.job.arch }}" == "aarch64" ]]; then
               export JOBS="--jobs 3"
             else
@@ -1687,7 +1697,9 @@ jobs:
   build-rustdesk-linux-sciter:
     if: ${{ inputs.upload-artifact }}
     needs: build-rustdesk-linux # not for dep, just make it run later for parallelism
-    runs-on: ${{ matrix.job.on }}
+    runs-on: 
+      - self-hosted
+      - ${{ matrix.job.on }}
     name: build-rustdesk-linux-sciter ${{ matrix.job.target }}
     strategy:
       fail-fast: false
@@ -1804,9 +1816,9 @@ jobs:
               export PATH="/opt/cmake-${{ env.SCITER_ARMV7_CMAKE_VERSION }}-linux-armhf/bin:$PATH"
             fi
             # bootstrap vcpkg and set VCPKG_ROOT
-            export VCPKG_ROOT=/opt/artifacts/vcpkg
-            mkdir -p /opt/artifacts
-            pushd /opt/artifacts
+            export VCPKG_ROOT=${{ github.workspace }}/artifacts/vcpkg
+            mkdir -p ${{ github.workspace }}/artifacts
+            pushd ${{ github.workspace }}/artifacts
             rm -rf vcpkg
             git clone https://github.com/microsoft/vcpkg
             pushd vcpkg
@@ -1851,7 +1863,7 @@ jobs:
             """ > ~/.cargo/config
             cat ~/.cargo/config
             # install dependencies from vcpkg
-            export VCPKG_ROOT=/opt/artifacts/vcpkg
+            export VCPKG_ROOT=${{ github.workspace }}/artifacts/vcpkg
             if ! $VCPKG_ROOT/vcpkg install --triplet ${{ matrix.job.vcpkg-triplet }} --x-install-root="$VCPKG_ROOT/installed"; then
               find "${VCPKG_ROOT}/" -name "*.log" | while read -r _1; do
                 echo "$_1:"
@@ -1901,7 +1913,7 @@ jobs:
   build-appimage:
     name: Build appimage ${{ matrix.job.target }}
     needs: [build-rustdesk-linux]
-    runs-on: ubuntu-20.04
+    runs-on: [self-hosted, linux]
     if: ${{ inputs.upload-artifact }}
     strategy:
       fail-fast: false
@@ -1953,7 +1965,9 @@ jobs:
     needs:
       - build-rustdesk-linux
       - build-rustdesk-linux-sciter
-    runs-on: ${{ matrix.job.on }}
+    runs-on: 
+      - self-hosted
+      - ${{ matrix.job.on }}
     if: ${{ inputs.upload-artifact }}
     strategy:
       fail-fast: false
@@ -2052,7 +2066,7 @@ jobs:
   build-rustdesk-web:
     if: False
     name: build-rustdesk-web
-    runs-on: ubuntu-20.04
+    runs-on: [self-hosted, linux]
     strategy:
       fail-fast: false
     env:
