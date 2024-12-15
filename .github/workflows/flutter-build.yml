@@ -254,7 +254,7 @@ jobs:
     name: ${{ matrix.job.target }} (${{ matrix.job.os }})
     runs-on: ${{ matrix.job.os }}
     # Temporarily disable this action due to additional test is needed.
-    if: false
+    #if: false
     strategy:
       fail-fast: false
       matrix:
@@ -842,7 +842,7 @@ jobs:
     needs:
       - build-for-macOS
       - build-for-windows-flutter
-    runs-on: [self-hosted, linux]
+    runs-on: [self-hosted, ubuntu-20.04]
     if: ${{ inputs.upload-artifact }}
     steps:
       - name: Download artifacts
@@ -1176,7 +1176,7 @@ jobs:
     needs: [build-rustdesk-android]
     name: build rustdesk android universal apk
     if: ${{ inputs.upload-artifact }}
-    runs-on: [self-hosted, linux]
+    runs-on: [self-hosted, ubuntu-20.04]
     env:
       reltype: release
       x86_target: "" # can be ",android-x86"
@@ -1913,7 +1913,7 @@ jobs:
   build-appimage:
     name: Build appimage ${{ matrix.job.target }}
     needs: [build-rustdesk-linux]
-    runs-on: [self-hosted, linux]
+    runs-on: [self-hosted, ubuntu-20.04]
     if: ${{ inputs.upload-artifact }}
     strategy:
       fail-fast: false
@@ -2066,7 +2066,7 @@ jobs:
   build-rustdesk-web:
     if: False
     name: build-rustdesk-web
-    runs-on: [self-hosted, linux]
+    runs-on: [self-hosted, ubuntu-20.04]
     strategy:
       fail-fast: false
     env:
