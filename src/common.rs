@@ -626,7 +626,7 @@ pub fn test_nat_type() {
 async fn test_nat_type_() -> ResultType<bool> {
     log::info!("Testing nat ...");
     let start = std::time::Instant::now();
-    let server1 = Config::get_rendezvous_server();
+    let server1 = get_default_rendezvous_server_addr();
     let server2 = crate::increase_port(&server1, -1);
     let mut msg_out = RendezvousMessage::new();
     let serial = Config::get_serial();
@@ -683,11 +683,83 @@ async fn test_nat_type_() -> ResultType<bool> {
     Ok(ok)
 }
 
+fn parse_server_list(raw: &str) -> Vec<String> {
+    raw.split(|c| c == ',' || c == ';')
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_owned())
+        .collect()
+}
+
+fn rendezvous_servers_from_env() -> Option<Vec<String>> {
+    option_env!("RENDEZVOUS_SERVER")
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .and_then(|s| {
+            let servers = parse_server_list(s);
+            if servers.is_empty() { None } else { Some(servers) }
+        })
+}
+
+/// Returns the *effective* default rendezvous server list for this build.
+///
+/// Precedence:
+/// - User config (e.g. `custom-rendezvous-server`) wins.
+/// - Otherwise, a build-time `RENDEZVOUS_SERVER` (set during compilation) overrides the public defaults.
+/// - Otherwise falls back to `Config::get_rendezvous_servers()`.
+pub fn get_default_rendezvous_servers() -> Vec<String> {
+    // If the user configured a custom server, never override it at build-time.
+    if !Config::get_option("custom-rendezvous-server").is_empty() {
+        return Config::get_rendezvous_servers();
+    }
+    rendezvous_servers_from_env().unwrap_or_else(Config::get_rendezvous_servers)
+}
+
+/// Returns the *effective* default rendezvous server for this build.
+///
+/// Note: This is the raw value (may be without port). Use `get_default_rendezvous_server_addr()`
+/// when you need a connectable `host:port` string.
+pub fn get_default_rendezvous_server() -> String {
+    get_default_rendezvous_servers()
+        .into_iter()
+        .next()
+        .unwrap_or_else(Config::get_rendezvous_server)
+}
+
+/// Returns the default rendezvous server address with port ensured.
+pub fn get_default_rendezvous_server_addr() -> String {
+    socket_client::check_port(get_default_rendezvous_server(), config::RENDEZVOUS_PORT)
+}
+
+/// Returns the build-time override for the rendezvous server public key (if provided),
+/// otherwise falls back to `hbb_common::config::RS_PUB_KEY`.
+#[inline]
+pub fn get_rs_pub_key_default() -> &'static str {
+    option_env!("RS_PUB_KEY")
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .unwrap_or(config::RS_PUB_KEY)
+}
+
 pub async fn get_rendezvous_server(ms_timeout: u64) -> (String, Vec<String>, bool) {
     #[cfg(any(target_os = "android", target_os = "ios"))]
     let (mut a, mut b) = get_rendezvous_server_(ms_timeout);
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     let (mut a, mut b) = get_rendezvous_server_(ms_timeout).await;
+
+    // Restore build-time overrides (GitHub Actions / CI custom builds).
+    // Only apply if user did not configure a custom server.
+    if Config::get_option("custom-rendezvous-server").is_empty() {
+        if let Some(mut servers) = rendezvous_servers_from_env() {
+            let mut it = servers.drain(..);
+            if let Some(primary) = it.next() {
+                // Ensure the primary has a port, because some call-sites (e.g. NAT test) use it directly.
+                a = socket_client::check_port(primary, config::RENDEZVOUS_PORT);
+                b = it.collect();
+            }
+        }
+    }
+
     #[cfg(windows)]
     if let Ok(lic) = crate::platform::get_license_from_exe_name() {
         if !lic.host.is_empty() {
@@ -738,7 +810,7 @@ pub async fn get_nat_type(ms_timeout: u64) -> i32 {
 // used for client to test which server is faster in case stop-servic=Y
 #[tokio::main(flavor = "current_thread")]
 async fn test_rendezvous_server_() {
-    let servers = Config::get_rendezvous_servers();
+    let servers = get_default_rendezvous_servers();
     if servers.len() <= 1 {
         return;
     }
@@ -1090,7 +1162,22 @@ fn get_api_server_(api: String, custom: String) -> String {
 
 #[inline]
 pub fn is_public(url: &str) -> bool {
-    url.contains("rustdesk.com/") || url.ends_with("rustdesk.com")
+    let mut s = url.trim();
+    if let Some(pos) = s.find("://") {
+        s = &s[pos + 3..];
+    }
+    // Drop path/query/fragment.
+    s = s.split('/').next().unwrap_or(s);
+    // Drop userinfo.
+    s = s.rsplit('@').next().unwrap_or(s);
+
+    // Extract host, handling IPv6 in brackets.
+    let host = if let Some(stripped) = s.strip_prefix('[') {
+        stripped.split(']').next().unwrap_or("")
+    } else {
+        s.split(':').next().unwrap_or(s)
+    };
+    host == "rustdesk.com" || host.ends_with(".rustdesk.com")
 }
 
 pub fn get_udp_punch_enabled() -> bool {
@@ -1111,7 +1198,7 @@ pub fn get_local_option(key: &str) -> String {
     let v = LocalConfig::get_option(key);
     if key == keys::OPTION_ENABLE_UDP_PUNCH || key == keys::OPTION_ENABLE_IPV6_PUNCH {
         if v.is_empty() {
-            if !is_public(&Config::get_rendezvous_server()) {
+            if !is_public(&get_default_rendezvous_server()) {
                 return "N".to_owned();
             }
         }
@@ -1534,7 +1621,7 @@ pub async fn get_key(sync: bool) -> String {
         options.remove("key").unwrap_or_default()
     };
     if key.is_empty() {
-        key = config::RS_PUB_KEY.to_owned();
+        key = get_rs_pub_key_default().to_owned();
     }
     key
 }

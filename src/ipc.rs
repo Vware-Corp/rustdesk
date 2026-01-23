@@ -638,11 +638,11 @@ async fn handle(data: Data, stream: &mut Connection) {
                 } else if name == "rendezvous_server" {
                     value = Some(format!(
                         "{},{}",
-                        Config::get_rendezvous_server(),
-                        Config::get_rendezvous_servers().join(",")
+                        crate::get_default_rendezvous_server(),
+                        crate::get_default_rendezvous_servers().join(",")
                     ));
                 } else if name == "rendezvous_servers" {
-                    value = Some(Config::get_rendezvous_servers().join(","));
+                    value = Some(crate::get_default_rendezvous_servers().join(","));
                 } else if name == "fingerprint" {
                     value = if Config::get_key_confirmed() {
                         Some(crate::common::pk_to_fingerprint(Config::get_key_pair().1))
@@ -1247,10 +1247,11 @@ pub async fn get_rendezvous_server(ms_timeout: u64) -> (String, Vec<String>) {
         let b: Vec<String> = urls.map(|x| x.to_owned()).collect();
         (a, b)
     } else {
-        (
-            Config::get_rendezvous_server(),
-            Config::get_rendezvous_servers(),
-        )
+        let servers = crate::get_default_rendezvous_servers();
+        let mut it = servers.into_iter();
+        let a = it.next().unwrap_or_else(Config::get_rendezvous_server);
+        let b: Vec<String> = it.collect();
+        (a, b)
     }
 }
 
@@ -1326,7 +1327,7 @@ pub async fn get_rendezvous_servers(ms_timeout: u64) -> Vec<String> {
     if let Ok(Some(v)) = get_config_async("rendezvous_servers", ms_timeout).await {
         return v.split(',').map(|x| x.to_owned()).collect();
     }
-    return Config::get_rendezvous_servers();
+    return crate::get_default_rendezvous_servers();
 }
 
 #[inline]
