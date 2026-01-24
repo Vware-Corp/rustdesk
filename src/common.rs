@@ -1874,12 +1874,42 @@ pub fn rustdesk_interval(i: Interval) -> ThrottledInterval {
     ThrottledInterval::new(i)
 }
 
+/// Embedded custom client config (base64 of a libsodium signed message).
+///
+/// If set (non-empty), `load_custom_client()` will apply it without requiring `custom.txt`.
+///
+/// Recommended injection method:
+/// - Set `CUSTOM_CLIENT_CONFIG_B64` at **compile time** (e.g. in CI) so it is baked into the binary.
+pub const EMBEDDED_CUSTOM_CLIENT_CONFIG_B64: &str = match option_env!("CUSTOM_CLIENT_CONFIG_B64")
+{
+    Some(v) => v,
+    None => "",
+};
+
+/// Public key (base64 32 bytes) used to verify the custom client config signature.
+///
+/// You can override it at **compile time** with `CUSTOM_CLIENT_CONFIG_PUBKEY_B64`,
+/// or replace the fallback value below.
+pub const CUSTOM_CLIENT_CONFIG_PUBKEY_B64: &str =
+    match option_env!("CUSTOM_CLIENT_CONFIG_PUBKEY_B64") {
+        Some(v) => v,
+        None => "m/KE4n1g6vdsKIhHBWjPNUbqt/cXhyFcIeEu2YBf8MU=",
+    };
+
 pub fn load_custom_client() {
     #[cfg(debug_assertions)]
     if let Ok(data) = std::fs::read_to_string("./custom.txt") {
         read_custom_client(data.trim());
         return;
     }
+
+    // Embedded config (recommended for “all platforms”).
+    let embedded = EMBEDDED_CUSTOM_CLIENT_CONFIG_B64.trim();
+    if !embedded.is_empty() {
+        read_custom_client(embedded);
+        return;
+    }
+
     let Some(path) = std::env::current_exe().map_or(None, |x| x.parent().map(|x| x.to_path_buf()))
     else {
         return;
@@ -1977,8 +2007,7 @@ pub fn read_custom_client(config: &str) {
         log::error!("Failed to decode custom client config");
         return;
     };
-    const KEY: &str = "5Qbwsde3unUcJBtrx9ZkvUmwFNoExHzpryHuPUdqlWM=";
-    let Some(pk) = get_rs_pk(KEY) else {
+    let Some(pk) = get_rs_pk(CUSTOM_CLIENT_CONFIG_PUBKEY_B64) else {
         log::error!("Failed to parse public key of custom client");
         return;
     };
