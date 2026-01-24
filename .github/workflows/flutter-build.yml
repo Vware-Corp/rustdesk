@@ -44,6 +44,9 @@ env:
   #signing keys env variable checks
   ANDROID_SIGNING_KEY: "${{ secrets.ANDROID_SIGNING_KEY }}"
   MACOS_P12_BASE64: "${{ secrets.MACOS_P12_BASE64 }}"
+  # Embedded custom client config (compile-time, used by `option_env!()` in Rust)
+  CUSTOM_CLIENT_CONFIG_B64: "${{ secrets.CUSTOM_CLIENT_CONFIG_B64 }}"
+  CUSTOM_CLIENT_CONFIG_PUBKEY_B64: "${{ secrets.CUSTOM_CLIENT_CONFIG_PUBKEY_B64 }}"
   UPLOAD_ARTIFACT: "${{ inputs.upload-artifact }}"
   # NOTE: RustDesk upstream uses an external signing service for Windows artifacts.
   # In forks, it’s usually simpler to sign locally with `signtool` + your own PFX.
