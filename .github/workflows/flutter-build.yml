@@ -255,7 +255,19 @@ jobs:
             if ([string]::IsNullOrWhiteSpace($b64)) { return }
             $path = Join-Path $env:RUNNER_TEMP $fileName
             [IO.File]::WriteAllBytes($path, [Convert]::FromBase64String($b64))
-            certutil -user -addstore -f $storeName $path | Out-Host
+            # Prefer Import-Certificate (no interactive prompts / faster).
+            # Try LocalMachine first (best for WinVerifyTrust), then CurrentUser fallback.
+            $storePaths = @("Cert:\LocalMachine\$storeName", "Cert:\CurrentUser\$storeName")
+            foreach ($storePath in $storePaths) {
+              try {
+                Import-Certificate -FilePath $path -CertStoreLocation $storePath -ErrorAction Stop | Out-Host
+                Write-Host "Imported $fileName into $storePath"
+                return
+              } catch {
+                Write-Host "Import into $storePath failed: $($_.Exception.Message)"
+              }
+            }
+            throw "Failed to import $fileName into both LocalMachine and CurrentUser stores ($storeName)"
           }
 
           # Intermediate first, then root.
@@ -527,7 +539,19 @@ jobs:
             if ([string]::IsNullOrWhiteSpace($b64)) { return }
             $path = Join-Path $env:RUNNER_TEMP $fileName
             [IO.File]::WriteAllBytes($path, [Convert]::FromBase64String($b64))
-            certutil -user -addstore -f $storeName $path | Out-Host
+            # Prefer Import-Certificate (no interactive prompts / faster).
+            # Try LocalMachine first (best for WinVerifyTrust), then CurrentUser fallback.
+            $storePaths = @("Cert:\LocalMachine\$storeName", "Cert:\CurrentUser\$storeName")
+            foreach ($storePath in $storePaths) {
+              try {
+                Import-Certificate -FilePath $path -CertStoreLocation $storePath -ErrorAction Stop | Out-Host
+                Write-Host "Imported $fileName into $storePath"
+                return
+              } catch {
+                Write-Host "Import into $storePath failed: $($_.Exception.Message)"
+              }
+            }
+            throw "Failed to import $fileName into both LocalMachine and CurrentUser stores ($storeName)"
           }
 
           Import-Base64Cert $env:WIN_CODESIGN_INTERMEDIATE_CRT_B64 "CA" "codesign-intermediate.cer"
