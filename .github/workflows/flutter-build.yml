@@ -242,7 +242,7 @@ jobs:
           path: rustdesk
 
       - name: Sign rustdesk files
-        if: env.UPLOAD_ARTIFACT == 'true' && env.WIN_PFX_BASE64 != ''
+        if: env.WIN_PFX_BASE64 != ''
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
@@ -270,9 +270,11 @@ jobs:
           $files = Get-ChildItem -Path "rustdesk" -Recurse -File -Include $patterns
           if (-not $files) { throw "No signable files found under ./rustdesk" }
           $files = $files | Sort-Object -Unique FullName
+          $signArgs = @("sign","/fd","SHA256","/tr",$ts,"/td","SHA256","/f",$pfxPath)
+          if (-not [string]::IsNullOrWhiteSpace($env:WIN_PFX_PASSWORD)) { $signArgs += @("/p",$env:WIN_PFX_PASSWORD) }
 
           foreach ($f in $files) {
-            & $signtool sign /fd SHA256 /tr $ts /td SHA256 /f $pfxPath /p $env:WIN_PFX_PASSWORD $f.FullName
+            & $signtool @signArgs $f.FullName
             if ($LASTEXITCODE -ne 0) { throw "signtool sign failed: $($f.FullName)" }
           }
           foreach ($f in $files) {
@@ -332,9 +334,11 @@ jobs:
           $files = Get-ChildItem -Path "SignOutput" -Recurse -File -Include $patterns -ErrorAction Stop
           if (-not $files) { throw "No signable files found under ./SignOutput" }
           $files = $files | Sort-Object -Unique FullName
+          $signArgs = @("sign","/fd","SHA256","/tr",$ts,"/td","SHA256","/f",$pfxPath)
+          if (-not [string]::IsNullOrWhiteSpace($env:WIN_PFX_PASSWORD)) { $signArgs += @("/p",$env:WIN_PFX_PASSWORD) }
 
           foreach ($f in $files) {
-            & $signtool sign /fd SHA256 /tr $ts /td SHA256 /f $pfxPath /p $env:WIN_PFX_PASSWORD $f.FullName
+            & $signtool @signArgs $f.FullName
             if ($LASTEXITCODE -ne 0) { throw "signtool sign failed: $($f.FullName)" }
           }
           foreach ($f in $files) {
@@ -475,7 +479,7 @@ jobs:
           path: Release
 
       - name: Sign rustdesk files
-        if: env.UPLOAD_ARTIFACT == 'true' && env.WIN_PFX_BASE64 != ''
+        if: env.WIN_PFX_BASE64 != ''
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
@@ -499,9 +503,11 @@ jobs:
           $files = Get-ChildItem -Path "Release" -Recurse -File -Include $patterns
           if (-not $files) { throw "No signable files found under ./Release" }
           $files = $files | Sort-Object -Unique FullName
+          $signArgs = @("sign","/fd","SHA256","/tr",$ts,"/td","SHA256","/f",$pfxPath)
+          if (-not [string]::IsNullOrWhiteSpace($env:WIN_PFX_PASSWORD)) { $signArgs += @("/p",$env:WIN_PFX_PASSWORD) }
 
           foreach ($f in $files) {
-            & $signtool sign /fd SHA256 /tr $ts /td SHA256 /f $pfxPath /p $env:WIN_PFX_PASSWORD $f.FullName
+            & $signtool @signArgs $f.FullName
             if ($LASTEXITCODE -ne 0) { throw "signtool sign failed: $($f.FullName)" }
           }
           foreach ($f in $files) {
@@ -547,9 +553,11 @@ jobs:
           $files = Get-ChildItem -Path "SignOutput" -Recurse -File -Include $patterns -ErrorAction Stop
           if (-not $files) { throw "No signable files found under ./SignOutput" }
           $files = $files | Sort-Object -Unique FullName
+          $signArgs = @("sign","/fd","SHA256","/tr",$ts,"/td","SHA256","/f",$pfxPath)
+          if (-not [string]::IsNullOrWhiteSpace($env:WIN_PFX_PASSWORD)) { $signArgs += @("/p",$env:WIN_PFX_PASSWORD) }
 
           foreach ($f in $files) {
-            & $signtool sign /fd SHA256 /tr $ts /td SHA256 /f $pfxPath /p $env:WIN_PFX_PASSWORD $f.FullName
+            & $signtool @signArgs $f.FullName
             if ($LASTEXITCODE -ne 0) { throw "signtool sign failed: $($f.FullName)" }
           }
           foreach ($f in $files) {
