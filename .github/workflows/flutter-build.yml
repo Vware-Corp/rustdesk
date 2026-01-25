@@ -256,14 +256,23 @@ jobs:
           if ([string]::IsNullOrWhiteSpace($ts)) { $ts = "http://timestamp.digicert.com" }
 
           # Locate signtool if not in PATH
-          $signtool = (Get-Command signtool.exe -ErrorAction SilentlyContinue).Source
-          if (-not $signtool) {
-            $kits = Join-Path ${env:ProgramFiles(x86)} "Windows Kits\\10\\bin"
+          # Prefer a known-stable Windows SDK signtool version.
+          # (Some newer SDK versions have been flaky and can fail with
+          #  "The specified algorithm cannot be used or is invalid.")
+          $kits = Join-Path ${env:ProgramFiles(x86)} "Windows Kits\\10\\bin"
+          $preferred = Join-Path $kits "10.0.19041.0\\x64\\signtool.exe"
+          if (Test-Path $preferred) {
+            $signtool = $preferred
+          } else {
             $signtool = Get-ChildItem -Path $kits -Filter signtool.exe -Recurse -ErrorAction SilentlyContinue |
-              Sort-Object FullName -Descending |
+              Sort-Object FullName |
               Select-Object -First 1 -ExpandProperty FullName
+            if (-not $signtool) {
+              $signtool = (Get-Command signtool.exe -ErrorAction SilentlyContinue).Source
+            }
           }
           if (-not $signtool) { throw "signtool.exe not found on runner" }
+          Write-Host "Using signtool: $signtool (version $((Get-Item $signtool).VersionInfo.FileVersion))"
 
           # Sign RustDesk folder content (before packaging into installer/MSI)
           $patterns = @("*.exe","*.dll","*.msi")
@@ -321,14 +330,20 @@ jobs:
           $ts = $env:WIN_TIMESTAMP_URL
           if ([string]::IsNullOrWhiteSpace($ts)) { $ts = "http://timestamp.digicert.com" }
 
-          $signtool = (Get-Command signtool.exe -ErrorAction SilentlyContinue).Source
-          if (-not $signtool) {
-            $kits = Join-Path ${env:ProgramFiles(x86)} "Windows Kits\\10\\bin"
+          $kits = Join-Path ${env:ProgramFiles(x86)} "Windows Kits\\10\\bin"
+          $preferred = Join-Path $kits "10.0.19041.0\\x64\\signtool.exe"
+          if (Test-Path $preferred) {
+            $signtool = $preferred
+          } else {
             $signtool = Get-ChildItem -Path $kits -Filter signtool.exe -Recurse -ErrorAction SilentlyContinue |
-              Sort-Object FullName -Descending |
+              Sort-Object FullName |
               Select-Object -First 1 -ExpandProperty FullName
+            if (-not $signtool) {
+              $signtool = (Get-Command signtool.exe -ErrorAction SilentlyContinue).Source
+            }
           }
           if (-not $signtool) { throw "signtool.exe not found on runner" }
+          Write-Host "Using signtool: $signtool (version $((Get-Item $signtool).VersionInfo.FileVersion))"
 
           $patterns = @("*.exe","*.msi")
           $files = Get-ChildItem -Path "SignOutput" -Recurse -File -Include $patterns -ErrorAction Stop
@@ -490,13 +505,19 @@ jobs:
           $ts = $env:WIN_TIMESTAMP_URL
           if ([string]::IsNullOrWhiteSpace($ts)) { $ts = "http://timestamp.digicert.com" }
 
-          $signtool = (Get-Command signtool.exe -ErrorAction SilentlyContinue).Source
-          if (-not $signtool) {
-            $kits = Join-Path ${env:ProgramFiles(x86)} "Windows Kits\\10\\bin"
+          $kits = Join-Path ${env:ProgramFiles(x86)} "Windows Kits\\10\\bin"
+          $preferred = Join-Path $kits "10.0.19041.0\\x64\\signtool.exe"
+          if (Test-Path $preferred) {
+            $signtool = $preferred
+          } else {
             $signtool = Get-ChildItem -Path $kits -Filter signtool.exe -Recurse -ErrorAction SilentlyContinue |
-              Sort-Object FullName -Descending |
+              Sort-Object FullName |
               Select-Object -First 1 -ExpandProperty FullName
+            if (-not $signtool) {
+              $signtool = (Get-Command signtool.exe -ErrorAction SilentlyContinue).Source
+            }
           }
+          Write-Host "Using signtool: $signtool (version $((Get-Item $signtool).VersionInfo.FileVersion))"
           if (-not $signtool) { throw "signtool.exe not found on runner" }
 
           $patterns = @("*.exe","*.dll")
@@ -540,13 +561,19 @@ jobs:
           $ts = $env:WIN_TIMESTAMP_URL
           if ([string]::IsNullOrWhiteSpace($ts)) { $ts = "http://timestamp.digicert.com" }
 
-          $signtool = (Get-Command signtool.exe -ErrorAction SilentlyContinue).Source
-          if (-not $signtool) {
-            $kits = Join-Path ${env:ProgramFiles(x86)} "Windows Kits\\10\\bin"
+          $kits = Join-Path ${env:ProgramFiles(x86)} "Windows Kits\\10\\bin"
+          $preferred = Join-Path $kits "10.0.19041.0\\x64\\signtool.exe"
+          if (Test-Path $preferred) {
+            $signtool = $preferred
+          } else {
             $signtool = Get-ChildItem -Path $kits -Filter signtool.exe -Recurse -ErrorAction SilentlyContinue |
-              Sort-Object FullName -Descending |
+              Sort-Object FullName |
               Select-Object -First 1 -ExpandProperty FullName
+            if (-not $signtool) {
+              $signtool = (Get-Command signtool.exe -ErrorAction SilentlyContinue).Source
+            }
           }
+          Write-Host "Using signtool: $signtool (version $((Get-Item $signtool).VersionInfo.FileVersion))"
           if (-not $signtool) { throw "signtool.exe not found on runner" }
 
           $patterns = @("*.exe")
