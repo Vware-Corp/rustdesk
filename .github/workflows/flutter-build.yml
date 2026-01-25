@@ -74,6 +74,10 @@ jobs:
       WIN_PFX_BASE64: "${{ secrets.WIN_PFX_BASE64 }}"
       WIN_PFX_PASSWORD: "${{ secrets.WIN_PFX_PASSWORD }}"
       WIN_TIMESTAMP_URL: "${{ secrets.WIN_TIMESTAMP_URL }}"
+      # Optional: trust your private PKI on the runner so `signtool verify` succeeds.
+      # Put your root/intermediate CA certs (no private key) as base64 secrets.
+      WIN_CODESIGN_ROOT_CRT_B64: "${{ secrets.WIN_CODESIGN_ROOT_CRT_B64 }}"
+      WIN_CODESIGN_INTERMEDIATE_CRT_B64: "${{ secrets.WIN_CODESIGN_INTERMEDIATE_CRT_B64 }}"
     strategy:
       fail-fast: false
       matrix:
@@ -241,6 +245,23 @@ jobs:
           name: rustdesk-unsigned-windows-${{ matrix.job.arch }}
           path: rustdesk
 
+      - name: Trust code-signing CA (optional)
+        if: env.WIN_CODESIGN_ROOT_CRT_B64 != '' || env.WIN_CODESIGN_INTERMEDIATE_CRT_B64 != ''
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          function Import-Base64Cert([string]$b64, [string]$storeName, [string]$fileName) {
+            if ([string]::IsNullOrWhiteSpace($b64)) { return }
+            $path = Join-Path $env:RUNNER_TEMP $fileName
+            [IO.File]::WriteAllBytes($path, [Convert]::FromBase64String($b64))
+            certutil -user -addstore -f $storeName $path | Out-Host
+          }
+
+          # Intermediate first, then root.
+          Import-Base64Cert $env:WIN_CODESIGN_INTERMEDIATE_CRT_B64 "CA" "codesign-intermediate.cer"
+          Import-Base64Cert $env:WIN_CODESIGN_ROOT_CRT_B64 "Root" "codesign-root.cer"
+
       - name: Sign rustdesk files
         if: env.WIN_PFX_BASE64 != ''
         shell: pwsh
@@ -379,6 +400,9 @@ jobs:
       WIN_PFX_BASE64: "${{ secrets.WIN_PFX_BASE64 }}"
       WIN_PFX_PASSWORD: "${{ secrets.WIN_PFX_PASSWORD }}"
       WIN_TIMESTAMP_URL: "${{ secrets.WIN_TIMESTAMP_URL }}"
+      # Optional: trust your private PKI on the runner so `signtool verify` succeeds.
+      WIN_CODESIGN_ROOT_CRT_B64: "${{ secrets.WIN_CODESIGN_ROOT_CRT_B64 }}"
+      WIN_CODESIGN_INTERMEDIATE_CRT_B64: "${{ secrets.WIN_CODESIGN_INTERMEDIATE_CRT_B64 }}"
     # Temporarily disable this action due to additional test is needed.
     # if: false
     strategy:
@@ -492,6 +516,22 @@ jobs:
         with:
           name: rustdesk-unsigned-windows-${{ matrix.job.arch }}
           path: Release
+
+      - name: Trust code-signing CA (optional)
+        if: env.WIN_CODESIGN_ROOT_CRT_B64 != '' || env.WIN_CODESIGN_INTERMEDIATE_CRT_B64 != ''
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          function Import-Base64Cert([string]$b64, [string]$storeName, [string]$fileName) {
+            if ([string]::IsNullOrWhiteSpace($b64)) { return }
+            $path = Join-Path $env:RUNNER_TEMP $fileName
+            [IO.File]::WriteAllBytes($path, [Convert]::FromBase64String($b64))
+            certutil -user -addstore -f $storeName $path | Out-Host
+          }
+
+          Import-Base64Cert $env:WIN_CODESIGN_INTERMEDIATE_CRT_B64 "CA" "codesign-intermediate.cer"
+          Import-Base64Cert $env:WIN_CODESIGN_ROOT_CRT_B64 "Root" "codesign-root.cer"
 
       - name: Sign rustdesk files
         if: env.WIN_PFX_BASE64 != ''
