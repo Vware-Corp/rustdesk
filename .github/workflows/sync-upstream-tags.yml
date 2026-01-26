@@ -1,0 +1,130 @@
+name: Sync upstream tag (apply patch)
+
+on:
+  schedule:
+    # Daily (UTC). Adjust as needed.
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-upstream-tags
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Sync latest upstream tag (if new)
+        shell: bash
+        env:
+          # Required secrets:
+          UPSTREAM_URL: ${{ secrets.UPSTREAM_URL }}
+          PATCH_URL: ${{ secrets.PATCH_URL }}
+          GIT_USER_NAME: ${{ secrets.GIT_USER_NAME }}
+          GIT_USER_EMAIL: ${{ secrets.GIT_USER_EMAIL }}
+
+          # Optional repo variable overrides:
+          # - examples: "^[0-9]+(\\.[0-9]+){2}(-[0-9]+)?$" or "^v?[0-9]+(\\.[0-9]+){2}$"
+          TAG_REGEX: ${{ vars.UPSTREAM_TAG_REGEX }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${UPSTREAM_URL:-}" ]]; then
+            echo "Missing required secret: UPSTREAM_URL"
+            exit 2
+          fi
+          if [[ -z "${PATCH_URL:-}" ]]; then
+            echo "Missing required secret: PATCH_URL"
+            exit 2
+          fi
+          if [[ -z "${GIT_USER_NAME:-}" || -z "${GIT_USER_EMAIL:-}" ]]; then
+            echo "Missing required secrets: GIT_USER_NAME / GIT_USER_EMAIL"
+            exit 2
+          fi
+
+          # Default: matches tags like 1.4.5 and 1.2.3-2 (but not nightly/fdroid-version/v1.2.2-pe).
+          TAG_REGEX="${TAG_REGEX:-^[0-9]+(\.[0-9]+){2}(-[0-9]+)?$}"
+
+          git config user.name "$GIT_USER_NAME"
+          git config user.email "$GIT_USER_EMAIL"
+
+          git remote add upstream "$UPSTREAM_URL"
+
+          # Get upstream tags (names only), filtered by TAG_REGEX.
+          upstream_tags="$(
+            git ls-remote --tags --refs upstream \
+              | awk '{print $2}' \
+              | sed 's|^refs/tags/||' \
+              | grep -E "$TAG_REGEX" || true
+          )"
+
+          if [[ -z "${upstream_tags:-}" ]]; then
+            echo "No upstream tags matched TAG_REGEX=$TAG_REGEX"
+            exit 0
+          fi
+
+          latest_upstream_tag="$(printf '%s\n' "$upstream_tags" | sort -V | tail -n 1)"
+          echo "Latest upstream tag: $latest_upstream_tag"
+
+          local_latest_tag="$(
+            git tag -l \
+              | grep -E "$TAG_REGEX" \
+              | sort -V \
+              | tail -n 1 || true
+          )"
+          echo "Local latest tag: ${local_latest_tag:-<none>}"
+
+          if [[ -n "${local_latest_tag:-}" ]]; then
+            highest="$(printf '%s\n%s\n' "$local_latest_tag" "$latest_upstream_tag" | sort -V | tail -n 1)"
+            if [[ "$highest" == "$local_latest_tag" ]]; then
+              echo "No upstream tag higher than local latest; nothing to do."
+              exit 0
+            fi
+          fi
+
+          if git rev-parse -q --verify "refs/tags/$latest_upstream_tag" >/dev/null; then
+            echo "Tag already exists in this repo; nothing to do."
+            exit 0
+          fi
+
+          PATCH_FILE="$RUNNER_TEMP/custom.patch"
+          export PATCH_FILE
+
+          # Download patch from GitLab Snippet (or any HTTPS URL). Keep PATCH_URL as a secret
+          # if it contains credentials (token).
+          curl --fail --location --silent --show-error "$PATCH_URL" -o "$PATCH_FILE"
+          if [[ ! -s "$PATCH_FILE" ]]; then
+            echo "Downloaded patch is empty."
+            exit 2
+          fi
+
+          # Fetch the upstream tag into a temporary local tag to avoid conflicts.
+          git fetch --no-tags upstream "refs/tags/$latest_upstream_tag:refs/tags/upstream-$latest_upstream_tag"
+
+          # Check out the upstream tag commit in detached HEAD.
+          git checkout --detach "refs/tags/upstream-$latest_upstream_tag"
+
+          # Apply the patch and create one commit (if it actually changes anything).
+          git apply --whitespace=nowarn "$PATCH_FILE"
+          git add -A
+
+          if ! git diff --cached --quiet; then
+            git commit -m "Apply custom patch for $latest_upstream_tag"
+          else
+            echo "Patch produced no changes; tagging upstream commit as-is."
+          fi
+
+          # Force (re)create the tag name pointing at the patched commit (or upstream commit if no changes).
+          git tag -f "$latest_upstream_tag"
+
+          # Force-push the tag into this repo.
+          git push origin "refs/tags/$latest_upstream_tag:refs/tags/$latest_upstream_tag" --force
+
