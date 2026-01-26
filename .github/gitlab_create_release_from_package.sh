@@ -167,8 +167,23 @@ def add_link(name: str, url: str):
 
 for f in files:
   fname = f.get("file_name")
+  fid = f.get("id")
+  dlp = f.get("download_path")
   if not fname:
     continue
-  url = f"{base}/{proj_path}/-/packages/generic/{pkg}/{ver}/{fname}"
+  if isinstance(dlp, str) and dlp:
+    # Prefer the API-provided download_path (id-based and version-safe).
+    if dlp.startswith("http://") or dlp.startswith("https://"):
+      url = dlp
+    elif dlp.startswith("/"):
+      url = f"{base}{dlp}"
+    else:
+      url = f"{base}/{dlp}"
+  elif fid is not None:
+    # Fallback to the UI download URL (id-based).
+    url = f"{base}/{proj_path}/-/package_files/{fid}/download"
+  else:
+    # Last resort: generic package URL (name/version-based).
+    url = f"{base}/{proj_path}/-/packages/generic/{pkg}/{ver}/{fname}"
   add_link(fname, url)
 PY
