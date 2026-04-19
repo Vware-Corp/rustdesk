@@ -27,6 +27,7 @@ Create these in **GitHub → Settings → Secrets and variables → Actions → 
 - **`PATCH_SNIPPET_URL`**: GitLab API raw URL **without** token, for example:  
   `https://gitlab.com/api/v4/projects/<PROJECT_ID>/snippets/<SNIPPET_ID>/raw`  
   (Numeric `PROJECT_ID` or URL-encoded path like `group%2Fproject`.)
+- **`GH_PAT`**: GitHub **Personal Access Token** (Classic with `repo` and `workflow` scopes, or Fine-grained with `Contents: write` and `Workflows: write`). This is strictly required because your patch modifies `.github/workflows/` files. The default `GITHUB_TOKEN` is hard-coded by GitHub to reject modifications to workflows.
 - **`GIT_USER_NAME`**: Git author/committer name for the patch commit.
 - **`GIT_USER_EMAIL`**: Git author/committer email for the patch commit.
 
