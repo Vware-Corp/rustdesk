@@ -6,7 +6,7 @@ Workflow file: `./.github/workflows/sync-upstream-tags.yml`
 
 ### How it works
 
-- **Schedule**: runs daily (and can be run manually with `workflow_dispatch`).
+- **Schedule**: runs weekly (and can be run manually with `workflow_dispatch`).
 - **Tag selection**:
   - Reads all upstream tags, filters them with a **fixed regex in the workflow** (semver-style like `1.4.6`, `1.2.3-2`), and selects the **highest** tag using `sort -V`.
   - Compares it to the **highest local** tag matching the same regex.
