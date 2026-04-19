@@ -13,7 +13,7 @@ Workflow file: `./.github/workflows/sync-upstream-tags.yml`
   - Proceeds only if the upstream tag is strictly higher and not already present locally.
 - **Mirroring**:
   - Fetches the upstream tag commit.
-  - Downloads a patch (from a GitLab snippet URL) and applies it with `git apply`.
+  - Downloads a patch from a **GitLab project snippet** (API raw URL) using **`GITLAB_TOKEN`** in the `PRIVATE-TOKEN` header, then applies it with `git apply`.
   - Creates one commit if the patch changed anything.
   - Creates the tag with the **same name** as upstream pointing at the patched commit.
   - **Force-pushes** that tag to this GitHub repo.
@@ -23,8 +23,10 @@ Workflow file: `./.github/workflows/sync-upstream-tags.yml`
 Create these in **GitHub → Settings → Secrets and variables → Actions → Secrets**:
 
 - **`UPSTREAM_URL`**: Upstream git remote URL. For private upstream you can embed credentials in the URL.
-- **`PATCH_URL`**: URL to the raw patch content (GitLab snippet “raw” URL or GitLab API raw endpoint).  
-  Store it as a secret because it can include a token/credentials.
+- **`GITLAB_TOKEN`**: GitLab **project access token** (same project as the snippet). Used only as `PRIVATE-TOKEN` when downloading the snippet — **not** embedded in the URL.
+- **`PATCH_SNIPPET_URL`**: GitLab API raw URL **without** token, for example:  
+  `https://gitlab.com/api/v4/projects/<PROJECT_ID>/snippets/<SNIPPET_ID>/raw`  
+  (Numeric `PROJECT_ID` or URL-encoded path like `group%2Fproject`.)
 - **`GIT_USER_NAME`**: Git author/committer name for the patch commit.
 - **`GIT_USER_EMAIL`**: Git author/committer email for the patch commit.
 
@@ -50,7 +52,7 @@ git add -A
 git diff --cached --binary > custom.patch
 ```
 
-Then upload `custom.patch` as a **GitLab snippet** (private) and copy its **raw** URL into the GitHub secret `PATCH_URL`.
+Then upload `custom.patch` as a **GitLab project snippet** (same project as the token). Store the API raw URL (no token) in the secret **`PATCH_SNIPPET_URL`**; use your existing **`GITLAB_TOKEN`** secret for auth.
 
 ### Notes / caveats
 
