@@ -26,6 +26,9 @@ env:
   RS_PUB_KEY: "${{ secrets.RS_PUB_KEY }}"
   RENDEZVOUS_SERVER: "${{ secrets.RENDEZVOUS_SERVER }}"
   API_SERVER: "${{ secrets.API_SERVER }}"
+  # Embedded custom client config (compile-time, used by `option_env!()` in Rust)
+  CUSTOM_CLIENT_CONFIG_B64: "${{ secrets.CUSTOM_CLIENT_CONFIG_B64 }}"
+  CUSTOM_CLIENT_CONFIG_PUBKEY_B64: "${{ secrets.CUSTOM_CLIENT_CONFIG_PUBKEY_B64 }}"
   UPLOAD_ARTIFACT: "${{ inputs.upload-artifact }}"
   SIGN_BASE_URL: "${{ secrets.SIGN_BASE_URL }}"
 

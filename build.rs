@@ -78,6 +78,12 @@ fn install_android_deps() {
 }
 
 fn main() {
+    // Custom CI build parameters (embedded at compile time via `option_env!`).
+    println!("cargo:rerun-if-env-changed=RENDEZVOUS_SERVER");
+    println!("cargo:rerun-if-env-changed=RS_PUB_KEY");
+    println!("cargo:rerun-if-env-changed=API_SERVER");
+    println!("cargo:rerun-if-env-changed=CUSTOM_CLIENT_CONFIG_B64");
+    println!("cargo:rerun-if-env-changed=CUSTOM_CLIENT_CONFIG_PUBKEY_B64");
     hbb_common::gen_version();
     install_android_deps();
     #[cfg(all(windows, feature = "inline"))]
