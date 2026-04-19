@@ -8,7 +8,7 @@ Workflow file: `./.github/workflows/sync-upstream-tags.yml`
 
 - **Schedule**: runs daily (and can be run manually with `workflow_dispatch`).
 - **Tag selection**:
-  - Reads all upstream tags, filters them with `UPSTREAM_TAG_REGEX`, and selects the **highest** tag using `sort -V`.
+  - Reads all upstream tags, filters them with a **fixed regex in the workflow** (semver-style like `1.4.6`, `1.2.3-2`), and selects the **highest** tag using `sort -V`.
   - Compares it to the **highest local** tag matching the same regex.
   - Proceeds only if the upstream tag is strictly higher and not already present locally.
 - **Mirroring**:
@@ -30,15 +30,7 @@ Create these in **GitHub → Settings → Secrets and variables → Actions → 
 - **`GIT_USER_NAME`**: Git author/committer name for the patch commit.
 - **`GIT_USER_EMAIL`**: Git author/committer email for the patch commit.
 
-### Optional GitHub variables
-
-Create these in **GitHub → Settings → Secrets and variables → Actions → Variables**:
-
-- **`UPSTREAM_TAG_REGEX`**: Regex used to decide which upstream tags are “version tags”.
-  - Default used by the workflow: `^[0-9]+(\.[0-9]+){2}(-[0-9]+)?$`
-  - Example for tags like `v1.2.3`: `^v?[0-9]+(\.[0-9]+){2}(-[0-9]+)?$`
-
-Yes: **`UPSTREAM_TAG_REGEX` is a GitHub Actions _variable_ (`vars.*`), not a secret**.
+The version-tag filter is defined in `.github/workflows/sync-upstream-tags.yml` (`^[0-9]+(\.[0-9]+){2}(-[0-9]+)?$`). Repository variables are not used for it.
 
 ### Creating / updating the patch
 
