@@ -105,6 +105,21 @@ jobs:
             echo "Downloaded patch is empty."
             exit 2
           fi
+          # GitLab returns HTML/JSON on wrong URL or auth; git apply then: "No valid patches in input"
+          if head -c 512 "$PATCH_FILE" | grep -qiE '<!DOCTYPE|<html|<title'; then
+            echo "Download looks like HTML, not a unified diff. Use the GitLab API raw URL (ends with /raw), not the snippet web page."
+            exit 2
+          fi
+          if head -c 256 "$PATCH_FILE" | grep -q '^{' && grep -q '"message"' "$PATCH_FILE"; then
+            echo "Download looks like a JSON API error body:"
+            head -c 500 "$PATCH_FILE"
+            exit 2
+          fi
+          if ! grep -qE '^diff --git |^--- |^\+\+\+ ' "$PATCH_FILE"; then
+            echo "Download is not a valid unified diff (missing diff --git or ---/+++ lines). First 30 lines:"
+            head -30 "$PATCH_FILE"
+            exit 2
+          fi
 
           # Fetch the upstream tag into a temporary local tag to avoid conflicts.
           git fetch --no-tags upstream "refs/tags/$latest_upstream_tag:refs/tags/upstream-$latest_upstream_tag"
@@ -113,6 +128,7 @@ jobs:
           git checkout --detach "refs/tags/upstream-$latest_upstream_tag"
 
           # Apply the patch and create one commit (if it actually changes anything).
+          git apply --whitespace=nowarn --check "$PATCH_FILE"
           git apply --whitespace=nowarn "$PATCH_FILE"
           git add -A
 
