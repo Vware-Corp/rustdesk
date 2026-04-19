@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 concurrency:
   group: sync-upstream-tags
@@ -96,11 +97,20 @@ jobs:
           PATCH_FILE="$RUNNER_TEMP/custom.patch"
           export PATCH_FILE
 
+          # Save GitLab response for artifact upload on failure (do not print URL: may contain token query params).
+          DEBUG_DIR="${GITHUB_WORKSPACE}/.gha-debug"
+          mkdir -p "$DEBUG_DIR"
+          printf '%s\n' "Saved on failure: response-body.raw, curl-response-headers.txt (request URL is redacted)." >"$DEBUG_DIR/README.txt"
+
           # Download patch from GitLab project snippet (API raw). Token stays in secret GITLAB_TOKEN.
           curl --fail --location --silent --show-error \
             --header "PRIVATE-TOKEN: ${GITLAB_TOKEN}" \
-            "${PATCH_SNIPPET_URL}" \
-            -o "$PATCH_FILE"
+            -D "$DEBUG_DIR/curl-response-headers.txt" \
+            -o "$PATCH_FILE" \
+            "${PATCH_SNIPPET_URL}"
+          cp "$PATCH_FILE" "$DEBUG_DIR/response-body.raw"
+          wc -c "$PATCH_FILE" | tee "$DEBUG_DIR/response-body.bytes"
+
           if [[ ! -s "$PATCH_FILE" ]]; then
             echo "Downloaded patch is empty."
             exit 2
@@ -143,4 +153,12 @@ jobs:
 
           # Force-push the tag into this repo.
           git push origin "refs/tags/$latest_upstream_tag:refs/tags/$latest_upstream_tag" --force
+
+      - name: Upload GitLab patch download debug
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitlab-patch-download-debug
+          path: .gha-debug/
+          if-no-files-found: ignore
 

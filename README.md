@@ -51,4 +51,5 @@ Then upload `custom.patch` as a **GitLab project snippet** (same project as the 
 - **This workflow force-pushes tags.** If you care about immutability/signatures, consider using a different tag naming scheme (like `1.4.5-custom`) instead of overwriting upstream tag names.
 - If the patch no longer applies cleanly, the workflow will fail and no tag will be pushed.
 - If `git apply` reports **“No valid patches in input”**, the downloaded body was usually **not** a raw unified diff (HTML sign-in page, JSON error, or wrong snippet URL). **`PATCH_SNIPPET_URL`** should be the GitLab **API** raw URL, e.g. `https://<host>/api/v4/projects/<id>/snippets/<id>/raw`, and the snippet file content should be the output of `git diff` / `git diff --cached`, not a binary or other format.
+- On a **failed** run, the workflow uploads an artifact **`gitlab-patch-download-debug`** (when `.gha-debug/` exists) with **`response-body.raw`** (what GitLab returned) and **`curl-response-headers.txt`**. Download it from the run’s **Summary → Artifacts** to inspect HTML vs real diff. Treat it as sensitive if the patch contains secrets.
 
