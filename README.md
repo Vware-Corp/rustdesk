@@ -6,7 +6,7 @@ Workflow file: `./.github/workflows/sync-upstream-tags.yml`
 
 ### How it works
 
-- **Schedule**: runs weekly (and can be run manually with `workflow_dispatch`).
+- **Trigger**: manual only via `workflow_dispatch`.
 - **Tag selection**:
   - Reads all upstream tags, filters them with a **fixed regex in the workflow** (semver-style like `1.4.6`, `1.2.3-2`), and selects the **highest** tag using `sort -V`.
   - Compares it to the **highest local** tag matching the same regex.
@@ -56,4 +56,3 @@ Commit `custom.patch` to a branch in the GitLab project (or keep using a **proje
 - **This workflow force-pushes tags.** If you care about immutability/signatures, consider using a different tag naming scheme (like `1.4.5-custom`) instead of overwriting upstream tag names.
 - If the patch no longer applies cleanly, the workflow will fail and no tag will be pushed.
 - If `git apply` reports **“No valid patches in input”**, the downloaded body was usually **not** a raw unified diff (HTML sign-in page, JSON error, or wrong URL). **`PATCH_RAW_URL`** must be the GitLab **API** raw URL (snippet or repository file), not the HTML **/-/blob/** page. The file content must be the output of `git diff` / `git diff --cached`, not a binary or other format.
-

@@ -1,9 +1,6 @@
 name: Sync upstream tag (apply patch)
 
 on:
-  schedule:
-    # Weekly (Mondays at 03:17 UTC). Adjust as needed.
-    - cron: "17 3 * * 1"
   workflow_dispatch:
 
 permissions:
