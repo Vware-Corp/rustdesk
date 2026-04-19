@@ -31,8 +31,10 @@ jobs:
           GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
           GIT_USER_NAME: ${{ secrets.GIT_USER_NAME }}
           GIT_USER_EMAIL: ${{ secrets.GIT_USER_EMAIL }}
-          # GitLab API raw URL without token, e.g. https://gitlab.com/api/v4/projects/ID/snippets/SNIPPET_ID/raw
-          PATCH_SNIPPET_URL: ${{ secrets.PATCH_SNIPPET_URL }}
+          # GitLab API URL to raw patch bytes (no token in URL). Examples:
+          # - Repo file: .../projects/:id/repository/files/:path/raw?ref=:branch_or_tag  (path URL-encoded, e.g. tools%2Fcustom.patch)
+          # - Snippet:   .../projects/:id/snippets/:snippet_id/raw
+          PATCH_RAW_URL: ${{ secrets.PATCH_RAW_URL }}
         run: |
           set -euo pipefail
 
@@ -40,8 +42,8 @@ jobs:
             echo "Missing required secret: UPSTREAM_URL"
             exit 2
           fi
-          if [[ -z "${GITLAB_TOKEN:-}" || -z "${PATCH_SNIPPET_URL:-}" ]]; then
-            echo "Missing required secrets: GITLAB_TOKEN and/or PATCH_SNIPPET_URL"
+          if [[ -z "${GITLAB_TOKEN:-}" || -z "${PATCH_RAW_URL:-}" ]]; then
+            echo "Missing required secrets: GITLAB_TOKEN and/or PATCH_RAW_URL"
             exit 2
           fi
           if [[ -z "${GIT_USER_NAME:-}" || -z "${GIT_USER_EMAIL:-}" ]]; then
@@ -97,10 +99,10 @@ jobs:
           PATCH_FILE="$RUNNER_TEMP/custom.patch"
           export PATCH_FILE
 
-          # Download patch from GitLab project snippet (API raw). Token stays in secret GITLAB_TOKEN.
+          # Download patch (GitLab snippet raw or repository file raw API). Token stays in GITLAB_TOKEN.
           curl --fail --location --silent --show-error \
             --header "PRIVATE-TOKEN: ${GITLAB_TOKEN}" \
-            "${PATCH_SNIPPET_URL}" \
+            "${PATCH_RAW_URL}" \
             -o "$PATCH_FILE"
 
           if [[ ! -s "$PATCH_FILE" ]]; then
@@ -109,7 +111,7 @@ jobs:
           fi
           # GitLab returns HTML/JSON on wrong URL or auth; git apply then: "No valid patches in input"
           if head -c 512 "$PATCH_FILE" | grep -qiE '<!DOCTYPE|<html|<title'; then
-            echo "Download looks like HTML, not a unified diff. Use the GitLab API raw URL (ends with /raw), not the snippet web page."
+            echo "Download looks like HTML, not a unified diff. Use a GitLab API raw URL (snippet .../snippets/ID/raw or repo file .../repository/files/PATH/raw?ref=REF), not the HTML project page."
             exit 2
           fi
           if head -c 256 "$PATCH_FILE" | grep -q '^{' && grep -q '"message"' "$PATCH_FILE"; then

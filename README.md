@@ -13,7 +13,7 @@ Workflow file: `./.github/workflows/sync-upstream-tags.yml`
   - Proceeds only if the upstream tag is strictly higher and not already present locally.
 - **Mirroring**:
   - Fetches the upstream tag commit.
-  - Downloads a patch from a **GitLab project snippet** (API raw URL) using **`GITLAB_TOKEN`** in the `PRIVATE-TOKEN` header, then applies it with `git apply`.
+  - Downloads a patch from GitLab using a **GitLab API raw URL** (snippet or **repository file**) and **`GITLAB_TOKEN`** in the `PRIVATE-TOKEN` header, then applies it with `git apply`.
   - Creates one commit if the patch changed anything.
   - Creates the tag with the **same name** as upstream pointing at the patched commit.
   - **Force-pushes** that tag to this GitHub repo.
@@ -23,10 +23,14 @@ Workflow file: `./.github/workflows/sync-upstream-tags.yml`
 Create these in **GitHub → Settings → Secrets and variables → Actions → Secrets**:
 
 - **`UPSTREAM_URL`**: Upstream git remote URL. For private upstream you can embed credentials in the URL.
-- **`GITLAB_TOKEN`**: GitLab **project access token** (same project as the snippet). Used only as `PRIVATE-TOKEN` when downloading the snippet — **not** embedded in the URL.
-- **`PATCH_SNIPPET_URL`**: GitLab API raw URL **without** token, for example:  
-  `https://gitlab.com/api/v4/projects/<PROJECT_ID>/snippets/<SNIPPET_ID>/raw`  
-  (Numeric `PROJECT_ID` or URL-encoded path like `group%2Fproject`.)
+- **`GITLAB_TOKEN`**: GitLab **project access token** (same project as the patch file or snippet). Used only as `PRIVATE-TOKEN` when downloading — **not** embedded in the URL.
+- **`PATCH_RAW_URL`**: GitLab API URL to the **raw patch bytes** (no token in the URL). Either:
+  - **Repository file** (recommended):  
+    `https://<gitlab>/api/v4/projects/<PROJECT_ID>/repository/files/<URL_ENCODED_PATH>/raw?ref=<branch_or_tag>`  
+    Example path encoding: `tools/custom.patch` → `tools%2Fcustom.patch`.
+  - **Snippet**:  
+    `https://<gitlab>/api/v4/projects/<PROJECT_ID>/snippets/<SNIPPET_ID>/raw`  
+    (`PROJECT_ID` may be numeric or URL-encoded `group%2Fproject`.)
 - **`GH_PAT`**: GitHub **Personal Access Token** (Classic with `repo` and `workflow` scopes, or Fine-grained with `Contents: write` and `Workflows: write`). This is strictly required because your patch modifies `.github/workflows/` files. The default `GITHUB_TOKEN` is hard-coded by GitHub to reject modifications to workflows.
 - **`GIT_USER_NAME`**: Git author/committer name for the patch commit.
 - **`GIT_USER_EMAIL`**: Git author/committer email for the patch commit.
@@ -45,11 +49,11 @@ git add -A
 git diff --cached --binary > custom.patch
 ```
 
-Then upload `custom.patch` as a **GitLab project snippet** (same project as the token). Store the API raw URL (no token) in the secret **`PATCH_SNIPPET_URL`**; use your existing **`GITLAB_TOKEN`** secret for auth.
+Commit `custom.patch` to a branch in the GitLab project (or keep using a **project snippet**). Store the **API raw** URL (no token) in **`PATCH_RAW_URL`** — for a repo file, use the [Repository Files API](https://docs.gitlab.com/ee/api/repository_files.html#get-raw-file-from-repository) `.../repository/files/.../raw?ref=...` form. Use **`GITLAB_TOKEN`** for auth.
 
 ### Notes / caveats
 
 - **This workflow force-pushes tags.** If you care about immutability/signatures, consider using a different tag naming scheme (like `1.4.5-custom`) instead of overwriting upstream tag names.
 - If the patch no longer applies cleanly, the workflow will fail and no tag will be pushed.
-- If `git apply` reports **“No valid patches in input”**, the downloaded body was usually **not** a raw unified diff (HTML sign-in page, JSON error, or wrong snippet URL). **`PATCH_SNIPPET_URL`** should be the GitLab **API** raw URL, e.g. `https://<host>/api/v4/projects/<id>/snippets/<id>/raw`, and the snippet file content should be the output of `git diff` / `git diff --cached`, not a binary or other format.
+- If `git apply` reports **“No valid patches in input”**, the downloaded body was usually **not** a raw unified diff (HTML sign-in page, JSON error, or wrong URL). **`PATCH_RAW_URL`** must be the GitLab **API** raw URL (snippet or repository file), not the HTML **/-/blob/** page. The file content must be the output of `git diff` / `git diff --cached`, not a binary or other format.
 
